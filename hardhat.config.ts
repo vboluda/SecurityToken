@@ -1,23 +1,20 @@
-import { task } from "hardhat/config";
-import  "hardhat-deploy";
-import 'hardhat-deploy-ethers';
-import '@typechain/hardhat'
-import '@nomiclabs/hardhat-ethers'
-import '@nomiclabs/hardhat-waffle'
-import '@nomiclabs/hardhat-etherscan'
-import 'solidity-coverage'
+import { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-toolbox";
+import "hardhat-deploy";
 import 'dotenv/config';
 
-/**
- * @type import('hardhat/config').HardhatUserConfig
- */
-module.exports = {
+const DUMMY_PK:string     = "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+const config: HardhatUserConfig = {
   solidity: {
     compilers: [
-      {version: "0.8.8"}
+      {version: "0.8.0"},
+      {version: "0.8.4"},
+      {version: "0.8.8"},
+      {version: "0.8.9"},
+      {version: "0.8.20"}
     ]
   },
-  defaultNetwork: "hardhat",
   paths: {
     deploy: 'deploy',
     deployments: 'deployments',
@@ -31,36 +28,36 @@ module.exports = {
     }
   },
   typechain: {
-    outDir: 'types',
-    target: 'ethers-v5',
-    alwaysGenerateOverloads: false, // should overloads with full signatures like deposit(uint256) be generated always, even if there are no overloads?
-    externalArtifacts: ['externalArtifacts/*.json'], // optional array of glob patterns with external artifacts to process (for example external libs from node_modules)
+    outDir: "types",
+    target: "ethers-v6",
   },
   etherscan: {
-    apiKey: "4XEX8ASQ6CQXE44V4VQSSC2CV34CWE3XPK"
- },
+    apiKey: `${process.env.ETHERSCAN_API_KEY}`,
+  },
   networks: {
     hardhat: {
       chainId: 1337,
       live:false,
-      blockGasLimit:5000000000,
-      STO:{
-        NAME:"EXAMPLE",
-        SYMBOL:"EXE",
-        SUPPLY:"1000000000000000000000000",
+      blockGasLimit:10000000000,
+      DEPLOY:{
+        STO_NAME:"TEST001",
+        STO_SYMBOL:"T001",
+        INITIAL_SUPPLY:"1000000000000000000000000", //1M
         VERIFY:false
       }
     },
-    mumbai: {
-      url: "https://polygon-mumbai.g.alchemy.com/v2/OUBRXjHqGBRh15xnv-rX5cgNBfgId0YH",
-      accounts: [`${process.env.maticwallet}`],
-      chainId: 80001,
-      STO:{
-        NAME:"EXAMPLE",
-        SYMBOL:"EXE",
-        SUPPLY:"1000000000000000000000000",
+    sepolia: {
+      url: "https://rpc2.sepolia.org",
+      accounts: [`${process.env.DEV_PK_SEPOLIA_DEPLOYER ? process.env.DEV_PK_SEPOLIA_DEPLOYER : DUMMY_PK}`],
+      chainId: 11155111,
+      DEPLOY:{
+        STO_NAME:"TEST002",
+        STO_SYMBOL:"T002",
+        INITIAL_SUPPLY:"1000000000000000000000000", //1M
         VERIFY:true
       }
-    }
+    },  
   }
 };
+
+export default config;
