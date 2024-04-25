@@ -19,6 +19,7 @@ contract ST_crypt is Ownable, ERC20{
     event receivedEvent(uint256 amount,uint256 totalSent);
     event recalculatePaid(address account1, address account2, uint256 amount1, uint256 amount2);
     event withdrawEvent(address account, uint256 amount);
+    event updateExclusionEvent(address _excludedAddress, bool _isExcluded);
 
     error alreadyExcluded(address excluded);
     error alreadyNotExcluded(address notExcluded);
@@ -53,7 +54,7 @@ contract ST_crypt is Ownable, ERC20{
         } else if(!_isExcluded && !exclusions[_excludedAddress]){
             revert alreadyNotExcluded(_excludedAddress);
         }else{
-            if(_excludedAddress == address(this) || _excludedAddress == owner() || _excludedAddress == address(0)){
+            if( _excludedAddress == owner() || _excludedAddress == address(0)){
                 revert notAllowedExlussion(_excludedAddress);
             }
             // This mechanism is intended for Pool contracts, so we need to check if the address is a contract
@@ -62,6 +63,8 @@ contract ST_crypt is Ownable, ERC20{
             }
             exclusions[_excludedAddress] = _isExcluded;
         }
+
+        emit updateExclusionEvent(_excludedAddress, _isExcluded);
     }
 
     /** 
@@ -104,13 +107,13 @@ contract ST_crypt is Ownable, ERC20{
 
         (uint256 amount1, uint256 amount2) = _recalculateTransfer(from, to, fromBalance, toBalance);
 
-        address _from = from;
-        if(isExcluded(_from)){
+        address _from = msg.sender;
+        if(isExcluded(_from) || _from == address(this)){
             _from = defaultRecipient;
         }
 
         address _to = to;
-        if(isExcluded(_to)){
+        if(isExcluded(_to)  || _to == address(this)){
             _to = defaultRecipient;
         }
 
@@ -135,12 +138,12 @@ contract ST_crypt is Ownable, ERC20{
         (uint256 amount1, uint256 amount2) = _recalculateTransfer(msg.sender, to, fromBalance, toBalance);
 
         address _from = msg.sender;
-        if(isExcluded(_from)){
+        if(isExcluded(_from) || _from == address(this)){
             _from = defaultRecipient;
         }
 
         address _to = to;
-        if(isExcluded(_to)){
+        if(isExcluded(_to)  || _to == address(this)){
             _to = defaultRecipient;
         }
 
