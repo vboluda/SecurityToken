@@ -27,12 +27,26 @@ contract ST_crypt is Ownable, ERC20{
     error addressNotContract(address account);
     error cannotTransferFromExcluded(address account);
     
+    /**
+    @dev Constructor
+    @param name_ Token name
+    @param symbol_ Token symbol
+    @param initialSupply Initial supply
+    @param _defaultRecipient Default recipient for payments (for excluded accounts)
+     */
     constructor(string memory name_, string memory symbol_, uint256 initialSupply, address _defaultRecipient) 
     ERC20(name_,symbol_) Ownable(msg.sender){
          _mint(msg.sender, initialSupply);
          defaultRecipient = _defaultRecipient;
     }
 
+    /**
+        @dev Exclude or include an address from the payment system
+        @notice The contract owner can exclude or include an address from the payment system
+        @notice An excluded address will not receive payments but its tokens will not be bloqued or lost
+        @param _excludedAddress Address to exclude or include
+        @param _isExcluded True to exclude, false to include
+     */
     function updateExclusion(address _excludedAddress, bool _isExcluded) external onlyOwner{
         if(_isExcluded && exclusions[_excludedAddress]){
             revert alreadyExcluded(_excludedAddress);
@@ -42,11 +56,6 @@ contract ST_crypt is Ownable, ERC20{
             if(_excludedAddress == address(this) || _excludedAddress == owner() || _excludedAddress == address(0)){
                 revert notAllowedExlussion(_excludedAddress);
             }
-            // A contract with balance cannot be excluded. 
-            // This is to avoid a situation where a contract is excluded and the balance is lost
-            if(_isExcluded && balanceOf(_excludedAddress)>0){
-                revert addressHasBalance(_excludedAddress);
-            }
             // This mechanism is intended for Pool contracts, so we need to check if the address is a contract
             if(!_isContract(_excludedAddress)){
                 revert addressNotContract(_excludedAddress);
@@ -55,15 +64,34 @@ contract ST_crypt is Ownable, ERC20{
         }
     }
 
+    /** 
+        @dev Check if an address is excluded from the payment system
+        @param account Address to check
+        @return True if the address is excluded, false otherwise
+     */
     function isExcluded(address account) public view returns(bool){
         return exclusions[account];
     }
 
+    /**
+        @dev Change the default recipient for payments
+        @notice The default recipient is used to reveive payments from excluded accounts
+        @notice The default recipient can be any address, but it is recommended to use a contract that can handle the payments
+        @notice Must be called by the contract owner
+     */
     function changeDefaultRecipient(address _defaultRecipient) external onlyOwner{
         defaultRecipient = _defaultRecipient;
     }
 
-
+    /**
+        @dev standard ERC20 transferFrom function
+        @dev Transfer tokens from one account to another
+        @notice This function is overriden to keep track of the payments
+        @param from Account to transfer tokens from
+        @param to Account to transfer tokens to
+        @param amount Amount of tokens to transfer
+        @return True if the transfer was successful, false otherwise
+     */
     function transferFrom(
         address from,
         address to,
@@ -76,7 +104,7 @@ contract ST_crypt is Ownable, ERC20{
 
         (uint256 amount1, uint256 amount2) = _recalculateTransfer(from, to, fromBalance, toBalance);
 
-        address _from = from;
+        address _from = fromBalance;
         if(isExcluded(_from)){
             _from = defaultRecipient;
         }
@@ -91,7 +119,14 @@ contract ST_crypt is Ownable, ERC20{
         return super.transferFrom(from,to,amount);
     }
 
-
+    /**
+        @dev standard ERC20 transfer function
+        @dev Transfer tokens from the sender account to another account
+        @notice This function is overriden to keep track of the payments
+        @param to Account to transfer tokens to
+        @param amount Amount of tokens to transfer
+        @return True if the transfer was successful, false otherwise
+     */
     function transfer(address to, uint256 amount) public override returns (bool){
         require(balanceOf(msg.sender) >= amount,"Amount exceeds balance");
         uint256 fromBalance=balanceOf(msg.sender) - amount; 
@@ -114,7 +149,16 @@ contract ST_crypt is Ownable, ERC20{
         return super.transfer(to,amount);
     }
 
+    /**
+        @dev Withdraw the payments for an account
+        @notice The account will receive the payments that have not been withdrawn yet
+        @notice The account must not be excluded
+        @notice The account must have a balance
+     */
     function withdraw() external{
+        if(exclusions[msg.sender]){
+            revert cannotTransferFromExcluded(msg.sender);
+        }
         uint256 amountToPay=_calculatePaid(msg.sender);
         spent[msg.sender] = balanceOf(msg.sender) * totalReceived / totalSupply();
         
@@ -124,6 +168,17 @@ contract ST_crypt is Ownable, ERC20{
 
         emit withdrawEvent(msg.sender, amountToPay);
     } 
+
+    function withdrawToDefaultRecipient(address account) external onlyOwner{
+        uint256 amountToPay=_calculatePaid(account);
+        spent[account] = balanceOf(account) * totalReceived / totalSupply();
+        
+        if(amountToPay>0){
+            payable(defaultRecipient).transfer(amountToPay);
+        }        
+
+        emit withdrawEvent(account, amountToPay);
+    }
 
     receive() external payable { 
         //console.log("received: %i",msg.value);
