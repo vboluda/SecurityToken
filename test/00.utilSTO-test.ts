@@ -5,34 +5,41 @@ import {ST_crypt__factory} from "../types/factories/contracts/ST/ST_crypt__facto
 import {ST_crypt} from "../types/contracts/ST/ST_crypt";
 
 const TOTAL_SUPPLY:number=1000000;
+const SYMBOL:string = "TST";
+const NAME:string = "TEST1";
+
 
 describe("SECURITY TOKEN", function () {
     let Deployer:Signer;
     let Account1:Signer;
     let Account2:Signer;
     let Approved:Signer;
+    let DefaultReceiver:Signer;
 
     let deployerAddress:string;
     let account1Address:string;
     let account2Address:string;
     let approvedAddress:string;
+    let defaultReceiverAddress:string;
 
     let St_Factory:ST_crypt__factory;
     let St:ST_crypt;
 
 
     this.beforeEach(async function () {
-      [Deployer,Account1, Account2,Approved] = await ethers.getSigners();
+      [Deployer,Account1, Account2,Approved, DefaultReceiver] = await ethers.getSigners();
       [
         deployerAddress, 
         account1Address, 
         account2Address,
-        approvedAddress
+        approvedAddress,
+        defaultReceiverAddress
       ] = await Promise.all([
         Deployer.getAddress(),
         Account1.getAddress(),
         Account2.getAddress(),
-        Approved.getAddress()
+        Approved.getAddress(),
+        DefaultReceiver.getAddress()
       ]);
       [
         St_Factory
@@ -40,10 +47,37 @@ describe("SECURITY TOKEN", function () {
         ethers.getContractFactory("ST_crypt") as Promise<ST_crypt__factory>
       ]);
 
-      St=await St_Factory.deploy("TEST1","TST",TOTAL_SUPPLY);
+      St=await St_Factory.deploy(NAME,SYMBOL,TOTAL_SUPPLY,defaultReceiverAddress);
       
     });
 
+    it("Check initial values", async function () {
+      let [
+        totalSupply,
+        totalReceived,
+        spent,
+        balance,
+        defaultRecipient,
+        symbol,
+        name
+      ] = await Promise.all([
+        St.totalSupply(),
+        St.totalReceived(),
+        St.spent(deployerAddress),
+        St.balanceOf(deployerAddress),
+        St.defaultRecipient(),
+        St.symbol(),
+        St.name()
+      ]);
+
+      expect(totalSupply).to.be.equal(TOTAL_SUPPLY);
+      expect(totalReceived).to.be.equal(0);
+      expect(spent).to.be.equal(0);
+      expect(balance).to.be.equal(TOTAL_SUPPLY);
+      expect(defaultRecipient).to.be.equal(defaultReceiverAddress);
+      expect(symbol).to.be.equal(SYMBOL);
+      expect(name).to.be.equal(NAME);
+    })
 
     it("Check withdraw", async function () {
           await expect(St.withdraw())
