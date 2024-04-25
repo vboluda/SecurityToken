@@ -340,4 +340,8 @@ describe("SECURITY TOKEN", function () {
       .withArgs(deployerAddress,250);
     });
   });
+
+  describe("ADD/REMOVE EXCLUSIONS", function () {
+
+  })
 });

@@ -104,7 +104,7 @@ contract ST_crypt is Ownable, ERC20{
 
         (uint256 amount1, uint256 amount2) = _recalculateTransfer(from, to, fromBalance, toBalance);
 
-        address _from = fromBalance;
+        address _from = from;
         if(isExcluded(_from)){
             _from = defaultRecipient;
         }
@@ -169,6 +169,10 @@ contract ST_crypt is Ownable, ERC20{
         emit withdrawEvent(msg.sender, amountToPay);
     } 
 
+    /** 
+        @dev Withdraw the payments for an excluded ccount to the default recipient
+        @notice The default will receive the payments that have not been withdrawn yet
+     */
     function withdrawToDefaultRecipient(address account) external onlyOwner{
         uint256 amountToPay=_calculatePaid(account);
         spent[account] = balanceOf(account) * totalReceived / totalSupply();
