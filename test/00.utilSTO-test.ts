@@ -15,31 +15,35 @@ describe("SECURITY TOKEN", function () {
     let Account2:Signer;
     let Approved:Signer;
     let DefaultReceiver:Signer;
+    let Excluded:Signer;
 
     let deployerAddress:string;
     let account1Address:string;
     let account2Address:string;
     let approvedAddress:string;
     let defaultReceiverAddress:string;
+    let excludedAddress:string;
 
     let St_Factory:ST_crypt__factory;
     let St:ST_crypt;
 
 
     this.beforeEach(async function () {
-      [Deployer,Account1, Account2,Approved, DefaultReceiver] = await ethers.getSigners();
+      [Deployer,Account1, Account2,Approved, DefaultReceiver, Excluded] = await ethers.getSigners();
       [
         deployerAddress, 
         account1Address, 
         account2Address,
         approvedAddress,
-        defaultReceiverAddress
+        defaultReceiverAddress,
+        excludedAddress
       ] = await Promise.all([
         Deployer.getAddress(),
         Account1.getAddress(),
         Account2.getAddress(),
         Approved.getAddress(),
-        DefaultReceiver.getAddress()
+        DefaultReceiver.getAddress(),
+        Excluded.getAddress()
       ]);
       [
         St_Factory
@@ -213,6 +217,112 @@ describe("SECURITY TOKEN", function () {
       .to.emit(St,"withdrawEvent")
       .withArgs(deployerAddress,250);
     });
+
+    it("Check transfer to accounts without previous funds (excluded)", async function () {
+
+      let spent:BigNumber=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(0);
+
+      await St.connect(Deployer).updateExclusion(account1Address,true);
+
+      await Deployer.sendTransaction({to:await St.getAddress(), value:1000});
+      let totalReceived:BigNumber=await St.totalReceived();
+        expect(totalReceived).to.be.equal(1000);
+
+      totalReceived=await St.totalReceived();
+      expect(totalReceived).to.be.equal(1000);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(0);
+
+      await expect(St.connect(Deployer).transfer(account1Address,TOTAL_SUPPLY/2))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(deployerAddress,defaultReceiverAddress,1000,0);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(500);
+      
+      await Deployer.sendTransaction({to:await St.getAddress(), value:1000});
+      totalReceived=await St.totalReceived();
+      expect(totalReceived).to.be.equal(2000);
+
+      // console.log("account1Address: ",account1Address);
+      // console.log("defaultReceiverAddress: ",defaultReceiverAddress);
+      // console.log("account2Address: ",account2Address);
+      // console.log("Deployer: ",deployerAddress);
+
+      await expect(St.connect(Account1).transfer(account2Address,TOTAL_SUPPLY/4))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(defaultReceiverAddress,account2Address,500,0);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(500);
+      spent=await St.spent(account1Address);
+      expect(spent).to.be.equal(500);
+      spent=await St.spent(account2Address);
+      expect(spent).to.be.equal(500);
+
+      await expect(St.withdraw())
+      .to.emit(St,"withdrawEvent")
+      .withArgs(deployerAddress,500);
+
+      await expect(St.connect(Account1).withdraw())
+      .to.be.revertedWithCustomError(St,"cannotTransferFromExcluded")
+      .withArgs(account1Address);
+
+      await expect(St.connect(Deployer).withdrawToDefaultRecipient(account1Address))
+      .to.emit(St,"withdrawEvent")
+      .withArgs(account1Address,0);
+
+      await expect(St.connect(Account2).withdraw())
+      .to.emit(St,"withdrawEvent")
+      .withArgs(account2Address,0);
+    });
+
+    it("Check transfer to account with previous funds (excluded)", async function () {
+
+      let spent:BigNumber=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(0);
+
+      await St.connect(Deployer).updateExclusion(account1Address,true);
+
+      await Deployer.sendTransaction({to: await St.getAddress(), value:1000});
+      let totalReceived:BigNumber=await St.totalReceived();
+        expect(totalReceived).to.be.equal(1000);
+
+      totalReceived=await St.totalReceived();
+      expect(totalReceived).to.be.equal(1000);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(0);
+
+      await expect(St.connect(Deployer).transfer(account1Address,TOTAL_SUPPLY/2))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(deployerAddress,defaultReceiverAddress,1000,0);
+
+      await expect(St.connect(Deployer).transfer(account2Address,TOTAL_SUPPLY/4))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(deployerAddress,account2Address,0,0);
+
+      await Deployer.sendTransaction({to: await St.getAddress(), value:1000});
+      totalReceived=await St.totalReceived();
+      expect(totalReceived).to.be.equal(2000);
+
+      await expect(St.connect(Account1).transfer(account2Address,TOTAL_SUPPLY/4))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(defaultReceiverAddress,account2Address,500,250);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(250);
+      spent=await St.spent(account1Address);
+      expect(spent).to.be.equal(500);
+      spent=await St.spent(account2Address);
+      expect(spent).to.be.equal(1000);
+
+      await expect(St.connect(Deployer).withdraw())
+      .to.emit(St,"withdrawEvent")
+      .withArgs(deployerAddress,250);
+    });
   });
 
   describe("TRANSFER FROM", function () {
@@ -339,6 +449,105 @@ describe("SECURITY TOKEN", function () {
       .to.emit(St,"withdrawEvent")
       .withArgs(deployerAddress,250);
     });
+
+    it("Check transfer to accounts without previous funds (excluded)", async function () {
+
+      let spent:BigNumber=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(0);
+
+      await St.connect(Deployer).updateExclusion(account1Address,true);
+
+      await Deployer.sendTransaction({to:await St.getAddress(), value:1000});
+      let totalReceived:BigNumber=await St.totalReceived();
+        expect(totalReceived).to.be.equal(1000);
+
+      totalReceived=await St.totalReceived();
+      expect(totalReceived).to.be.equal(1000);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(0);
+
+      await expect(St.connect(Approved).transferFrom(deployerAddress,account1Address,TOTAL_SUPPLY/2))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(deployerAddress,defaultReceiverAddress,1000,0);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(500);
+      
+      await Deployer.sendTransaction({to:await St.getAddress(), value:1000});
+      totalReceived=await St.totalReceived();
+      expect(totalReceived).to.be.equal(2000);
+
+      await expect(St.connect(Approved).transferFrom(account1Address,account2Address,TOTAL_SUPPLY/4))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(defaultReceiverAddress,account2Address,500,0);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(500);
+      spent=await St.spent(account1Address);
+      expect(spent).to.be.equal(500);
+      spent=await St.spent(account2Address);
+      expect(spent).to.be.equal(500);
+
+      await expect(St.withdraw())
+      .to.emit(St,"withdrawEvent")
+      .withArgs(deployerAddress,500);
+
+      await expect(St.connect(Account1).withdraw())
+      .to.be.revertedWithCustomError(St,"cannotTransferFromExcluded")
+      .withArgs(account1Address);
+
+      await expect(St.connect(Deployer).withdrawToDefaultRecipient(account1Address))
+      .to.emit(St,"withdrawEvent")
+      .withArgs(account1Address,0);
+
+      await expect(St.connect(Account2).withdraw())
+      .to.emit(St,"withdrawEvent")
+      .withArgs(account2Address,0);
+    });
+
+    it("Check transfer to account with previous funds (exluded)", async function () {
+
+      let spent:BigNumber=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(0);
+
+      await Deployer.sendTransaction({to:await St.getAddress(), value:1000});
+      let totalReceived:BigNumber=await St.totalReceived();
+        expect(totalReceived).to.be.equal(1000);
+
+      totalReceived=await St.totalReceived();
+      expect(totalReceived).to.be.equal(1000);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(0);
+
+      await expect(St.connect(Approved).transferFrom(deployerAddress,account1Address,TOTAL_SUPPLY/2))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(deployerAddress,account1Address,1000,0);
+
+      await expect(St.connect(Approved).transferFrom(deployerAddress,account2Address,TOTAL_SUPPLY/4))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(deployerAddress,account2Address,0,0);
+
+      await Deployer.sendTransaction({to:await St.getAddress(), value:1000});
+      totalReceived=await St.totalReceived();
+      expect(totalReceived).to.be.equal(2000);
+
+      await expect(St.connect(Approved).transferFrom(account1Address,account2Address,TOTAL_SUPPLY/4))
+      .to.emit(St, "recalculatePaid")
+      .withArgs(account1Address,account2Address,500,250);
+
+      spent=await St.spent(deployerAddress);
+      expect(spent).to.be.equal(250);
+      spent=await St.spent(account1Address);
+      expect(spent).to.be.equal(500);
+      spent=await St.spent(account2Address);
+      expect(spent).to.be.equal(1000);
+
+      await expect(St.connect(Deployer).withdraw())
+      .to.emit(St,"withdrawEvent")
+      .withArgs(deployerAddress,250);
+    });
   });
 
   describe("ADD/REMOVE EXCLUSIONS", function () {
@@ -376,13 +585,6 @@ describe("SECURITY TOKEN", function () {
           .to.be.revertedWithCustomError(St, "notAllowedExlussion")
           .withArgs(deployerAddress);
 
-    });
-
-    it("should require a contract address for exclusions", async function () {
-        // Try to exclude a regular user address
-        await expect(St.updateExclusion(account1Address, true))
-        .to.be.revertedWithCustomError(St, "addressNotContract")
-        .withArgs(account1Address);
     });
 
     it("should effectively add and remove exclusions", async function () {

@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-//import "hardhat/console.sol";
 
 /**
     CONTRACT util STO
@@ -25,7 +24,6 @@ contract ST_crypt is Ownable, ERC20{
     error alreadyNotExcluded(address notExcluded);
     error notAllowedExlussion(address excluded);
     error addressHasBalance(address account);
-    error addressNotContract(address account);
     error cannotTransferFromExcluded(address account);
     
     /**
@@ -56,10 +54,6 @@ contract ST_crypt is Ownable, ERC20{
         }else{
             if( _excludedAddress == owner() || _excludedAddress == address(0)){
                 revert notAllowedExlussion(_excludedAddress);
-            }
-            // This mechanism is intended for Pool contracts, so we need to check if the address is a contract
-            if(!_isContract(_excludedAddress)){
-                revert addressNotContract(_excludedAddress);
             }
             exclusions[_excludedAddress] = _isExcluded;
         }
@@ -107,17 +101,7 @@ contract ST_crypt is Ownable, ERC20{
 
         (uint256 amount1, uint256 amount2) = _recalculateTransfer(from, to, fromBalance, toBalance);
 
-        address _from = msg.sender;
-        if(isExcluded(_from) || _from == address(this)){
-            _from = defaultRecipient;
-        }
-
-        address _to = to;
-        if(isExcluded(_to)  || _to == address(this)){
-            _to = defaultRecipient;
-        }
-
-        _transferFunds(_from, amount1, _to, amount2);
+        _transferFunds(from, amount1, to, amount2);
 
         return super.transferFrom(from,to,amount);
     }
@@ -137,17 +121,7 @@ contract ST_crypt is Ownable, ERC20{
 
         (uint256 amount1, uint256 amount2) = _recalculateTransfer(msg.sender, to, fromBalance, toBalance);
 
-        address _from = msg.sender;
-        if(isExcluded(_from) || _from == address(this)){
-            _from = defaultRecipient;
-        }
-
-        address _to = to;
-        if(isExcluded(_to)  || _to == address(this)){
-            _to = defaultRecipient;
-        }
-
-        _transferFunds(_from, amount1, _to, amount2);
+        _transferFunds(msg.sender, amount1, to, amount2);
       
         return super.transfer(to,amount);
     }
@@ -188,17 +162,11 @@ contract ST_crypt is Ownable, ERC20{
     }
 
     receive() external payable { 
-        //console.log("received: %i",msg.value);
-        //console.log("BALANCE: %i",address(this).balance);
         totalReceived += msg.value;
         emit receivedEvent(msg.value,totalReceived);
     }
 
     function _calculatePaid(address account) internal view returns(uint256) {
-        // Excluded accounts do not receive payments
-        if(exclusions[account]){
-            return 0;
-        }
         uint256 amountToPay=balanceOf(account) * totalReceived / totalSupply();
 
         amountToPay -= spent[account];
@@ -219,17 +187,9 @@ contract ST_crypt is Ownable, ERC20{
         spent[account1] = newAmount1 * totalReceived / totalSupply();
         spent[account2] = newAmount2 * totalReceived / totalSupply();
 
-        emit recalculatePaid(account1,account2, amount1, amount2);
+        
 
         return (amount1,amount2);
-    }
-
-    function _isContract(address account) internal view returns(bool){
-        uint32 size;
-        assembly{
-            size := extcodesize(account)
-        }
-        return size > 0;
     }
 
     function _transferFunds (
@@ -238,7 +198,20 @@ contract ST_crypt is Ownable, ERC20{
         address account2, 
         uint256 amount2
     ) internal {
-        if(amount1>0) payable(account1).transfer(amount1);
-        if(amount2>0) payable(account2).transfer(amount2);
+
+         address _account1 = account1;
+        if(isExcluded(_account1) || _account1 == address(this)){
+            _account1 = defaultRecipient;
+        }
+
+        address _account2 = account2;
+        if(isExcluded(_account2)  || _account2 == address(this)){
+            _account2 = defaultRecipient;
+        }
+        if(amount1>0) payable(_account1).transfer(amount1);
+        if(amount2>0) payable(_account2).transfer(amount2);
+
+
+        emit recalculatePaid(_account1, _account2, amount1, amount2);
     }
 }
