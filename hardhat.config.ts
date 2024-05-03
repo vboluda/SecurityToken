@@ -43,6 +43,7 @@ const config: HardhatUserConfig = {
         STO_NAME:"TEST001",
         STO_SYMBOL:"T001",
         INITIAL_SUPPLY:"1000000000000000000000000", //1M
+        DEFAULT_RECIPENT:"0x5FbDB2315678afecb367f032d93F642f64180aa3",
         VERIFY:false
       }
     },
@@ -53,7 +54,8 @@ const config: HardhatUserConfig = {
       DEPLOY:{
         STO_NAME:"TEST002",
         STO_SYMBOL:"T002",
-        INITIAL_SUPPLY:"1000000000000000000000000", //1M
+        INITIAL_SUPPLY:"1000000000000000000000000", // 1M
+        DEFAULT_RECIPENT:"0x5FbDB2315678afecb367f032d93F642f64180aa3",
         VERIFY:true
       }
     },  

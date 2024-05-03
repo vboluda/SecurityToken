@@ -99,6 +99,28 @@ describe("SECURITY TOKEN", function () {
           .withArgs(deployerAddress,0);
     });
 
+    describe("CHANGE DEFAULT RECIPIENT", function () {
+      describe("CHANGE DEFAULT RECIPIENT", function () {
+        it("Should allow owner to change default recipient", async function () {
+          await expect(St.connect(Deployer).changeDefaultRecipient(account1Address))
+          .to.be.emit(St,"updateDefaultRecipientEvent")
+          .withArgs(defaultReceiverAddress,account1Address);
+
+          const currentDefaultRecipient:string = await St.defaultRecipient();
+          expect(currentDefaultRecipient).to.be.equal(account1Address);
+        });
+    
+        it("Should not allow non-owner to change default recipient", async function () {
+          await expect(St.connect(Account1).changeDefaultRecipient(account1Address))
+          .to.be.revertedWithCustomError(St,"OwnableUnauthorizedAccount")
+          .withArgs(account1Address);
+
+          const currentDefaultRecipient:string = await St.defaultRecipient();
+          expect(currentDefaultRecipient).to.be.equal(defaultReceiverAddress);
+        });
+    });
+    });
+
     describe("TRANSFER", function () {
 
       it("Check exceeds balance", async function () {
@@ -451,6 +473,7 @@ describe("SECURITY TOKEN", function () {
     });
 
     it("Check transfer to accounts without previous funds (excluded)", async function () {
+      const stAdress:string=await St.getAddress();
 
       let spent:BigNumber=await St.spent(deployerAddress);
       expect(spent).to.be.equal(0);
@@ -497,6 +520,10 @@ describe("SECURITY TOKEN", function () {
       .to.be.revertedWithCustomError(St,"cannotTransferFromExcluded")
       .withArgs(account1Address);
 
+      await expect(St.connect(Account1).withdrawToDefaultRecipient(account1Address))
+      .to.revertedWithCustomError(St,"OwnableUnauthorizedAccount")
+      .withArgs(account1Address);
+
       await expect(St.connect(Deployer).withdrawToDefaultRecipient(account1Address))
       .to.emit(St,"withdrawEvent")
       .withArgs(account1Address,0);
@@ -504,6 +531,18 @@ describe("SECURITY TOKEN", function () {
       await expect(St.connect(Account2).withdraw())
       .to.emit(St,"withdrawEvent")
       .withArgs(account2Address,0);
+
+      await Deployer.sendTransaction({to:await St.getAddress(), value:1000});
+      totalReceived=await St.totalReceived();
+      expect(totalReceived).to.be.equal(3000);
+
+      await expect(St.connect(Deployer).withdrawToDefaultRecipient(account1Address))
+      .to.emit(St,"withdrawEvent")
+      .withArgs(account1Address,250);
+
+      await expect(St.connect(Deployer).withdrawToDefaultRecipient(account2Address))
+      .to.revertedWithCustomError(St,"cannotWithdrawFromNotExcluded")
+      .withArgs(account2Address);
     });
 
     it("Check transfer to account with previous funds (exluded)", async function () {

@@ -18,13 +18,15 @@ contract ST_crypt is Ownable, ERC20{
     event receivedEvent(uint256 amount,uint256 totalSent);
     event recalculatePaid(address account1, address account2, uint256 amount1, uint256 amount2);
     event withdrawEvent(address account, uint256 amount);
-    event updateExclusionEvent(address _excludedAddress, bool _isExcluded);
+    event updateExclusionEvent(address excludedAddress, bool isExcluded);
+    event updateDefaultRecipientEvent(address oldDefaultRecipient,  address defaultRecipient);
 
     error alreadyExcluded(address excluded);
     error alreadyNotExcluded(address notExcluded);
     error notAllowedExlussion(address excluded);
     error addressHasBalance(address account);
     error cannotTransferFromExcluded(address account);
+    error cannotWithdrawFromNotExcluded(address account);
     
     /**
     @dev Constructor
@@ -77,7 +79,9 @@ contract ST_crypt is Ownable, ERC20{
         @notice Must be called by the contract owner
      */
     function changeDefaultRecipient(address _defaultRecipient) external onlyOwner{
+        address oldRecipient = defaultRecipient;
         defaultRecipient = _defaultRecipient;
+        emit updateDefaultRecipientEvent(oldRecipient, defaultRecipient);
     }
 
     /**
@@ -151,6 +155,10 @@ contract ST_crypt is Ownable, ERC20{
         @notice The default will receive the payments that have not been withdrawn yet
      */
     function withdrawToDefaultRecipient(address account) external onlyOwner{
+        if(!exclusions[account]){
+            revert cannotWithdrawFromNotExcluded(account);
+        }
+        
         uint256 amountToPay=_calculatePaid(account);
         spent[account] = balanceOf(account) * totalReceived / totalSupply();
         

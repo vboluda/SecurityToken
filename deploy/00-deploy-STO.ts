@@ -13,7 +13,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const ARGS=[
     config.STO_NAME,
     config.STO_SYMBOL,
-    config.INITIAL_SUPPLY
+    config.INITIAL_SUPPLY,
+    config.DEFAULT_RECIPENT
   ]
   //console.log("Parameters: "+JSON.stringify(ARGS));
   let deployResult:any = await deploy('ST_crypt', {
